@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package kglb;
+
+import "dropbox/proto/kglb/common.proto";
+import "dropbox/proto/kglb/healthchecker/healthchecker.proto";
+
+
+message MdbDiscoveryAttributes {
+  string query = 1;
+}
+
+message StaticDiscoveryAttributes {
+  repeated string hosts = 1;
+}
+
+message UpstreamDiscovery {
+  uint32 port = 1;
+
+  AddressFamily resolve_family = 2;
+
+  oneof attributes {
+    MdbDiscoveryAttributes mdb_attributes = 10;
+    StaticDiscoveryAttributes static_attributes = 11;
+  }
+}
+
+message UpstreamRouting {
+  ForwardMethods forward_method = 1;
+}
+
+message DynamicRouting {
+  float announce_limit_ratio = 1;
+
+  oneof attributes {
+    BgpRouteAttributes bgp_attributes = 10;
+  }
+}
+
+// next id: 11
+message BalancerConfig {
+  // balancer name, one setup_name may consist of multiple name's
+  string name = 1;
+  // global setup name: nginx-edge, block-wwww, etc.
+  string setup_name = 8;
+
+  LoadBalancerService lb_service = 2;
+
+  UpstreamRouting upstream_routing = 3;
+  UpstreamDiscovery upstream_discovery = 4;
+  healthchecker.UpstreamChecker upstream_checker = 5;
+  // set SO_MARK on the healthcheck socket
+  bool enable_fwmarks = 10;
+
+  DynamicRouting dynamic_routing = 6;
+
+  // Connects to discovered reals and adds vips to their loopback interface.
+  // (required with tunneling forward method to properly handle encapsulated
+  // packets).
+  bool configure_reals = 7;
+
+  // Default weight of healthy discovered realserver.
+  // Default value is 1000.
+  uint32 weight_up = 9;
+}
+
+message ControlPlaneConfig {
+  repeated BalancerConfig balancers = 1;
+}
