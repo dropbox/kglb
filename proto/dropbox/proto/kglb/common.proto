@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package kglb;
+
+enum ForwardMethods {
+  TUNNEL = 0;
+  MASQ = 1;
+}
+
+enum AddressFamily {
+  AF_INET = 0;
+  AF_INET6 = 1;
+}
+
+message IP {
+  oneof address {
+    string ipv4 = 1;
+    string ipv6 = 2;
+  }
+}
+
+enum IPProtocol {
+  TCP = 0;
+  UDP = 1;
+}
+
+// Service/Upstream stats.
+message Stats {
+  uint64 connections_count = 1; // number of connections.
+  uint64 packets_in_count = 2;  // number of incoming packets.
+  uint64 packets_out_count = 3; // number of outgoing packets.
+  uint64 bytes_in_count = 4;    // incoming bytes.
+  uint64 bytes_out_count = 5;   // outgoing bytes.
+  uint64 connections_rate = 6;  // connection rate.
+  uint64 packets_in_rate = 7;   // packets in rate.
+  uint64 packets_out_rate = 8;  // packets out rate.
+  uint64 bytes_in_rate = 9;     // inbound bytes rate.
+  uint64 bytes_out_rate = 10;   // outbound bytes rate.
+
+  uint64 active_conns_count  = 11; // number of active connections.
+  uint64 inact_conns_count   = 12; // number of active connections.
+  uint64 persist_conns_count = 13; // number of persistent connections.
+}
+
+message UpstreamState {
+  IP address = 1;
+  uint32 port = 2;
+  string hostname = 3;
+  uint32 weight = 4;
+  ForwardMethods forward_method = 5;
+}
+
+message LoadBalancerService {
+    oneof service {
+    IpvsService ipvs_service = 1;
+  }
+}
+
+message BalancerState {
+  string name = 1;
+  LoadBalancerService lb_service = 2;
+  repeated UpstreamState upstreams = 3;
+}
+
+message DynamicRoute {
+  oneof attributes {
+    BgpRouteAttributes bgp_attributes = 10;
+  }
+}
+
+message IpvsFwmarkAttributes {
+  AddressFamily address_family = 1;
+  uint32 fwmark = 2;
+}
+
+message IpvsTcpAttributes {
+  IP address = 1;
+  uint32 port = 2;
+}
+
+message IpvsUdpAttributes {
+  IP address = 1;
+  uint32 port = 2;
+}
+
+message IpvsService {
+  enum Flag {
+    EMPTY = 0;
+    PERSISTENT = 1;
+    HASHED = 2;
+    ONEPACKET = 3;
+    SCHED1 = 4;
+    SCHED2 = 5;
+    SCHED3 = 6;
+    SH_FALLBACK = 7;
+    SH_PORT = 8;
+    SH_NOPORT = 9;
+  }
+
+  enum Scheduler {
+    RR = 0;
+    WRR = 1;
+    IP_VS_SCH = 2;
+  }
+
+  oneof attributes {
+    IpvsTcpAttributes tcp_attributes = 1;
+    IpvsUdpAttributes udp_attributes = 2;
+    IpvsFwmarkAttributes fwmark_attributes = 3;
+  }
+
+  Scheduler scheduler = 4;
+  repeated Flag flags = 5;
+}
+
+message BgpRouteAttributes {
+  uint32 local_asn = 1;
+  uint32 peer_asn = 2;
+  string community = 3;
+
+  IP prefix = 5;
+  uint32 prefixlen = 6;
+
+  // Delay after withdrawing bgp route. Zero means no delay.
+  uint32 hold_time_ms = 7;
+}
+
+message LinkAddress {
+  string link_name = 1;
+  IP address = 2;
+}
+

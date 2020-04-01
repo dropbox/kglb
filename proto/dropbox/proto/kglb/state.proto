@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "dropbox/proto/kglb/common.proto";
+
+package kglb;
+
+message DataPlaneState {
+  repeated BalancerState balancers = 1;
+  repeated DynamicRoute dynamic_routes = 2;
+  repeated LinkAddress link_addresses = 3;
+}

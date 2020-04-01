@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package healthchecker;
+
+message DnsCheckerAttributes {
+    enum DNSQueryType {
+        A    = 0; // IPv4 address record.
+        AAAA = 1; // IPv6 address record.
+        NS   = 2; // Name server record.
+        MX   = 3; // Mail exchange record.
+        TXT  = 4; // Text record.
+        SOA  = 5; // Start of authority record.
+    }
+
+    // dns query string (".", "www.dropbox.com" and etc)
+    string query_string = 1;
+    // type of dns query message.
+    DNSQueryType query_type = 2;
+    // dns client (tcp|udp) transport.
+    IPProtocol protocol = 3;
+    // expected rcode in response to path health check.
+    uint32 rcode = 4;
+
+    // max wait timeout in milliseconds to complete the test.
+    // default value is 5000 ms.
+    uint32 check_timeout_ms = 10;
+}
+
+message DummyCheckerAttributes {
+}
+
+message HttpCheckerAttributes {
+    // http or https
+    // perform https request to backend if set to 'https'
+    string scheme = 1;
+    // TODO(team): rename to urlPath or something same
+    // url path to be requested on backend: "/", "/health", etc.
+    string uri = 2;
+    // headers to be set in http request
+    map<string, string> headers = 3;
+    // list of expected http response codes
+    repeated uint32 codes = 4;
+    // if `proxy_check_url` is defined, healthcheck is performed as http[s] (based on `scheme` field)
+    // proxy request to backend querying `proxy_check_url`, `uri` is ignored.
+    string proxy_check_url = 5;
+    // follow redirects and latest response code, disabled by default
+    bool follow_redirects = 6;
+
+    // max wait timeout in milliseconds to complete the test.
+    // default value is 5000 ms.
+    uint32 check_timeout_ms = 10;
+}
+
+// Configuration of syslog health checker.
+message SyslogCheckerAttributes {
+    // Syslog log level specified in the message sent to syslog daemon.
+    uint32 log_level = 1;
+
+    // (Optional) Health checking port. When it's specified (has positive value)
+    // health checker will use the number as dst port instead of using port
+    // defined in lb_service config.
+    uint32 port = 2;
+
+    // tcp|udp health checking transport. It might be helpful to perform health
+    // checking over tcp even lb_service is udp since udp health checking is not
+    // much effective without any response from syslog daemon.
+    IPProtocol protocol = 3;
+
+    // max wait timeout in milliseconds to complete the test.
+    // default value is 5000 ms.
+    uint32 check_timeout_ms = 10;
+}
+
+message UpstreamChecker {
+    // individual entry check interval
+    uint32 interval_ms = 2;
+
+    // number of consecutive valid health checks before considering the upstream as UP
+    uint32 rise_count = 3;
+    // number of consecutive invalid health checks before considering the upstream as DOWN
+    uint32 fall_count = 4;
+
+    HealthCheckerAttributes checker = 5;
+
+    // How many concurrency health checks can be send to this set of upstreams.
+    // Default value is 100.
+    uint32 concurrency_limit = 6;
+}
+
+message HealthCheckerAttributes {
+    oneof attributes {
+        DummyCheckerAttributes dummy = 1;
+        DnsCheckerAttributes dns = 2;
+        HttpCheckerAttributes http = 3;
+        SyslogCheckerAttributes syslog = 4;
+    }
+}
+
+enum IPProtocol {
+    TCP = 0;
+    UDP = 1;
+}
