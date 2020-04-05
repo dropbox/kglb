@@ -46,4 +46,4 @@ jobs:
         protoc --go_out=. ./dropbox/proto/kglb/*.proto
 
     - name: Build
-      run: go build -v ./kglbd
+      run: go build -v -o kglbd.bin ./kglbd
