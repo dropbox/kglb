@@ -42,7 +42,8 @@ jobs:
     - name: Compile protobuf
       run: |
         cd ./proto
-        protoc --go_out=. ./dropbox/proto/kglb/healthchecker/healthchecker.proto ./dropbox/proto/kglb/common.proto ./dropbox/proto/kglb/config.proto ./dropbox/proto/kglb/state.proto
+        protoc --go_out=. ./dropbox/proto/kglb/healthchecker/healthchecker.proto
+        protoc --go_out=. ./dropbox/proto/kglb/*.proto
 
     - name: Build
       run: go build -v ./kglbd
