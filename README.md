@@ -1,1 +1,1 @@
-# KgLb ![Go](https://github.com/piscesdk/kglb/workflows/Go/badge.svg?branch=master)
+# KgLb ![Build](https://github.com/piscesdk/kglb/workflows/Build/badge.svg) ![Test](https://github.com/piscesdk/kglb/workflows/Test/badge.svg)
