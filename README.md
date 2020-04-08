@@ -1,1 +1,1 @@
-# KgLb ![Build](https://github.com/piscesdk/kglb/workflows/Build/badge.svg) ![Test](https://github.com/piscesdk/kglb/workflows/Test/badge.svg)
+# KgLb ![Build](https://github.com/piscesdk/kglb/workflows/Build/badge.svg) ![Test](https://github.com/piscesdk/kglb/workflows/Test/badge.svg) ![Lint](https://github.com/piscesdk/kglb/workflows/Lint/badge.svg)
