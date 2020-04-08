@@ -10,12 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "gopkg.in/check.v1"
 
-	"dropbox/dlog"
 	"dropbox/kglb/common"
 	"dropbox/kglb/utils/dns_resolver"
 	"dropbox/kglb/utils/fwmark"
@@ -130,11 +128,6 @@ func (s *ServicerSuite) TestProcessServices(c *C) {
 			},
 		},
 	}
-
-	marshaler := &jsonpb.Marshaler{}
-	out, _ := marshaler.MarshalToString(testConfig)
-	dlog.Errorf("AAAA: %v\n", out)
-	c.Assert(out, Equals, "test")
 
 	expectedDpState := &pb.DataPlaneState{
 		Balancers: []*pb.BalancerState{
