@@ -446,11 +446,11 @@ func (m *HealthManagerSuite) TestCounterStatMaps(c *C) {
 	c.Assert(passCounter1, NotNil)
 	c.Assert(failCounter1, NotNil)
 	// Since source map is different - counters should be unique
-	c.Assert(passCounter1, Not(Equals), failCounter1)
+	c.Assert(passCounter1 == failCounter1, IsFalse)
 
 	// Ensure that second call returns the same counter
 	passCounter2 := mng.getHealthCheckCounter("test", "pass", mng.passCounters)
 	failCounter2 := mng.getHealthCheckCounter("test", "fail", mng.failCounters)
-	c.Assert(passCounter1, Equals, passCounter2)
-	c.Assert(failCounter1, Equals, failCounter2)
+	c.Assert(passCounter1 == passCounter2, IsTrue)
+	c.Assert(failCounter1 == failCounter2, IsTrue)
 }
