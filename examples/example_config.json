@@ -1,0 +1,41 @@
+{
+    "balancers": [
+        {
+            "dynamicRouting": {
+                "announceLimitRatio": 0.9
+            },
+            "lbService": {
+                "ipvsService": {
+                    "tcpAttributes": {
+                        "address": {
+                            "ipv4": "192.168.100.10"
+                        },
+                        "port": 80
+                    }
+                }
+            },
+            "name": "example-balancer",
+            "setupName": "example-setup",
+            "upstreamChecker": {
+                "checker": {
+                    "dummy": {}
+                },
+                "fallCount": 1,
+                "intervalMs": 10000,
+                "riseCount": 1
+            },
+            "upstreamDiscovery": {
+                "port": 80,
+                "staticAttributes": {
+                    "hosts": [
+                        "192.168.100.100",
+                        "192.168.100.101"
+                    ]
+                }
+            },
+            "upstreamRouting": {
+                "forwardMethod": "TUNNEL"
+            }
+        }
+    ]
+}
