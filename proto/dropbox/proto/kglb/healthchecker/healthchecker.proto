@@ -71,6 +71,13 @@ message SyslogCheckerAttributes {
     uint32 check_timeout_ms = 10;
 }
 
+// Configuration of TCP health checker
+message TcpCheckerAttributes {
+    // max wait timeout in milliseconds to complete the test
+    // default value is 5000ms
+    uint32 check_timeout_ms = 1;
+}
+
 message UpstreamChecker {
     // individual entry check interval
     uint32 interval_ms = 2;
@@ -93,6 +100,7 @@ message HealthCheckerAttributes {
         DnsCheckerAttributes dns = 2;
         HttpCheckerAttributes http = 3;
         SyslogCheckerAttributes syslog = 4;
+        TcpCheckerAttributes tcp = 5;
     }
 }
 

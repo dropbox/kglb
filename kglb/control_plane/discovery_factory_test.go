@@ -42,6 +42,6 @@ func (s *DiscoveryFactorySuite) TestStatic(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(resolver.GetState().Equal(
 		discovery.DiscoveryState([]*discovery.HostPort{
-			discovery.NewHostPort("test-host-2", 80),
+			discovery.NewHostPort("test-host-2", 80, true),
 		})), IsTrue)
 }

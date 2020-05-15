@@ -78,8 +78,10 @@ func (m *HealthManagerSuite) TestBasic(c *C) {
 	resolver, err := discovery.NewStaticResolver(discovery.StaticResolverParams{
 		Id: "resolver",
 		Hosts: discovery.DiscoveryState([]*discovery.HostPort{
-			discovery.NewHostPort("host1", 80),
-			discovery.NewHostPort("host2", 80),
+			discovery.NewHostPort("host1", 80, true),
+			discovery.NewHostPort("host2", 80, true),
+			// host3 disabled
+			discovery.NewHostPort("host3", 80, false),
 		}),
 	})
 	c.Assert(err, NoErr)
@@ -107,9 +109,11 @@ func (m *HealthManagerSuite) TestBasic(c *C) {
 	select {
 	case state, ok := <-mng.Updates():
 		c.Assert(ok, IsTrue)
-		c.Assert(len(state), Equals, 2)
+		c.Assert(len(state), Equals, 3)
 		c.Assert(state[0].Status.IsHealthy(), IsTrue)
 		c.Assert(state[1].Status.IsHealthy(), IsTrue)
+		// host3 is disabled, hence unhealthy
+		c.Assert(state[2].Status.IsHealthy(), IsFalse)
 	case <-time.After(5 * time.Second):
 		c.Fatal("fails to wait first update")
 	}
@@ -129,8 +133,8 @@ func (m *HealthManagerSuite) TestInitialState(c *C) {
 	resolver, err := discovery.NewStaticResolver(discovery.StaticResolverParams{
 		Id: "resolver",
 		Hosts: discovery.DiscoveryState([]*discovery.HostPort{
-			discovery.NewHostPort("host1", 80),
-			discovery.NewHostPort("host2", 80),
+			discovery.NewHostPort("host1", 80, true),
+			discovery.NewHostPort("host2", 80, true),
 		}),
 	})
 	c.Assert(err, NoErr)
@@ -168,7 +172,7 @@ func (m *HealthManagerSuite) TestInitialState(c *C) {
 	select {
 	case state, ok := <-mng.Updates():
 		elapsed := time.Since(startTime)
-		// first update should not come early than 30 seconds, because of health
+		// first update should not come early than 30 milliseconds, because of health
 		// checking (RiseCount * Interval).
 		c.Assert(ok, IsTrue)
 		c.Assert(len(state), Equals, 2)
@@ -181,15 +185,16 @@ func (m *HealthManagerSuite) TestInitialState(c *C) {
 
 	// next update with new entry should come without delays.
 	resolver.Update(discovery.DiscoveryState([]*discovery.HostPort{
-		discovery.NewHostPort("host1", 80),
-		discovery.NewHostPort("host2", 80),
-		discovery.NewHostPort("host3", 80),
+		// host1 disabled
+		discovery.NewHostPort("host1", 80, false),
+		discovery.NewHostPort("host2", 80, true),
+		discovery.NewHostPort("host3", 80, true),
 	}))
 	select {
 	case state, ok := <-mng.Updates():
 		c.Assert(ok, IsTrue)
 		c.Assert(len(state), Equals, 3)
-		c.Assert(state[0].Status.IsHealthy(), IsTrue)
+		c.Assert(state[0].Status.IsHealthy(), IsFalse)
 		c.Assert(state[1].Status.IsHealthy(), IsTrue)
 		c.Assert(state[2].Status.IsHealthy(), IsFalse)
 	case <-time.After(5 * time.Second):
@@ -213,7 +218,7 @@ func (m *HealthManagerSuite) TestErr(c *C) {
 	resolver, err := discovery.NewStaticResolver(discovery.StaticResolverParams{
 		Id: "resolver",
 		Hosts: discovery.DiscoveryState([]*discovery.HostPort{
-			discovery.NewHostPort("host1", 80),
+			discovery.NewHostPort("host1", 80, true),
 		}),
 	})
 	c.Assert(err, NoErr)
@@ -283,9 +288,9 @@ func (m *HealthManagerSuite) TestNonBlockingNotify(c *C) {
 	resolver, err := discovery.NewStaticResolver(discovery.StaticResolverParams{
 		Id: "resolver",
 		Hosts: discovery.DiscoveryState([]*discovery.HostPort{
-			discovery.NewHostPort("host1", 80),
-			discovery.NewHostPort("host2", 80),
-			discovery.NewHostPort("host3", 80),
+			discovery.NewHostPort("host1", 80, true),
+			discovery.NewHostPort("host2", 80, true),
+			discovery.NewHostPort("host3", 80, true),
 		}),
 	})
 	c.Assert(err, NoErr)
@@ -446,11 +451,11 @@ func (m *HealthManagerSuite) TestCounterStatMaps(c *C) {
 	c.Assert(passCounter1, NotNil)
 	c.Assert(failCounter1, NotNil)
 	// Since source map is different - counters should be unique
-	c.Assert(passCounter1 == failCounter1, IsFalse)
+	c.Assert(passCounter1, Not(Equals), failCounter1)
 
 	// Ensure that second call returns the same counter
 	passCounter2 := mng.getHealthCheckCounter("test", "pass", mng.passCounters)
 	failCounter2 := mng.getHealthCheckCounter("test", "fail", mng.failCounters)
-	c.Assert(passCounter1 == passCounter2, IsTrue)
-	c.Assert(failCounter1 == failCounter2, IsTrue)
+	c.Assert(passCounter1, Equals, passCounter2)
+	c.Assert(failCounter1, Equals, failCounter2)
 }

@@ -278,6 +278,7 @@ func ValidateUpstreamChecker(c *pb.BalancerConfig) error {
 		if int(attr.Syslog.GetPort()) > math.MaxUint16 {
 			return errors.Newf("syslog port value is out of bound: %+v", attr)
 		}
+	case *hc_pb.HealthCheckerAttributes_Tcp:
 	default:
 		return errors.Newf("Unsupported UpstreamChecker attributes %s", attr)
 	}

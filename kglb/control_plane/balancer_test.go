@@ -89,7 +89,6 @@ func (s *BalancerSuite) TestBasicFlow(c *C) {
 		},
 		WeightUp: 222,
 	}
-
 	updatesChan := make(chan *BalancerState, 10)
 	params := BalancerParams{
 		BalancerConfig:  balancerConfig,
@@ -411,7 +410,7 @@ func (s *BalancerSuite) TestFailedDnsResolutionChann(c *C) {
 	// health manager state.
 	healthMngState := health_manager.HealthManagerState{
 		health_manager.HealthManagerEntry{
-			HostPort: discovery.NewHostPort("my_host", 8080),
+			HostPort: discovery.NewHostPort("my_host", 8080, true),
 			Status:   health_manager.NewHealthStatusEntry(false),
 		},
 	}

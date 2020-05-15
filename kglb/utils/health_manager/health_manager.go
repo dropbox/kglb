@@ -80,6 +80,9 @@ type HealthManager struct {
 	passCounters statCounterMap
 	failCounters statCounterMap
 
+	// v2 gauges
+	aliveGauge v2stats.Gauge
+
 	// Health manager state.
 	state HealthManagerState
 	// last state sent via updateChan.
@@ -120,6 +123,10 @@ func NewHealthManager(ctx context.Context, params HealthManagerParams) (*HealthM
 		updateConfChan: make(chan struct{}, 1),
 		passCounters:   make(statCounterMap),
 		failCounters:   make(statCounterMap),
+		aliveGauge: aliveRatioGauge.Must(v2stats.KV{
+			"setup":   params.SetupName,
+			"service": params.ServiceName,
+		}),
 	}
 	mng.ctx, mng.cancelFunc = context.WithCancel(ctx)
 
@@ -252,6 +259,7 @@ func (h *HealthManager) applyResolverState(discoveryState discovery.DiscoverySta
 			newState[i] = HealthManagerEntry{
 				HostPort: hostPort,
 				Status:   NewHealthStatusEntry(h.params.InitialHealthyState),
+				Enabled:  hostPort.Enabled,
 			}
 		}
 	}
@@ -319,7 +327,7 @@ func (h *HealthManager) healthCheckLoop() {
 
 			if changed || !h.initialStateSent {
 				h.notifyStateChange()
-				// no more bypasses of changed flag.
+				// no more bypases of changed flag.
 				h.initialStateSent = true
 			}
 		case <-h.updateConfChan: // configuration has been updated.
@@ -337,9 +345,16 @@ func (h *HealthManager) notifyStateChange() {
 
 	for _, entry := range stateToSend {
 		if entry.Status.IsHealthy() {
-			healthyCnt += 1
+			healthyCnt++
 		}
 	}
+
+	aliveRatio := float64(0)
+	if len(stateToSend) > 0 {
+		aliveRatio = float64(healthyCnt) / float64(len(stateToSend))
+	}
+
+	h.setAliveRatioGauge(aliveRatio)
 
 	h.lastUpdateState.Store(stateToSend)
 
@@ -373,20 +388,27 @@ func (h *HealthManager) performHealthChecks() bool {
 		len(h.state),
 		func(numWorker int, numTask int) {
 			checkStatus := true
+			enabled := h.state[numTask].Enabled
 			// 1. perform check.
-			err := checker.Check(
-				h.state[numTask].HostPort.Address,
-				h.state[numTask].HostPort.Port)
-			if err != nil {
+			if enabled {
+				err := checker.Check(
+					h.state[numTask].HostPort.Address,
+					h.state[numTask].HostPort.Port)
+				if err != nil {
+					checkStatus = false
+					// report about the issue.
+					exclog.Report(
+						errors.Wrapf(
+							err,
+							"%s health manager failed to check %s entry: ",
+							h.params.Id,
+							h.state[numTask].HostPort.String()),
+						exclog.Operational, "")
+				}
+			} else {
+				// do not run healthcheck (report host as down unconditionally) if host is marked
+				// as disabled by Discovery service
 				checkStatus = false
-				// report about the issue.
-				exclog.Report(
-					errors.Wrapf(
-						err,
-						"%s health manager failed to check %s entry: ",
-						h.params.Id,
-						h.state[numTask].HostPort.String()),
-					exclog.Operational, "")
 			}
 			// 2. update status.
 			if h.state[numTask].Status.UpdateHealthCheckStatus(checkStatus, h.riseCount, h.fallCount) {
@@ -400,7 +422,7 @@ func (h *HealthManager) performHealthChecks() bool {
 			// 3. update realserver health status stats
 			if checkStatus {
 				h.increasePassCounter(h.state[numTask].HostPort.Host)
-			} else {
+			} else if enabled {
 				h.increaseFailCounter(h.state[numTask].HostPort.Host)
 			}
 		})
@@ -427,6 +449,12 @@ func (h *HealthManager) increaseFailCounter(host string) {
 	if counter != nil {
 		counter.Add(1)
 	}
+}
+
+func (h *HealthManager) setAliveRatioGauge(value float64) {
+	h.statLock.Lock()
+	defer h.statLock.Unlock()
+	h.aliveGauge.Set(value)
 }
 
 func (h *HealthManager) getHealthCheckCounter(host, result string, srcMap statCounterMap) *v2stats.Counter {

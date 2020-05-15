@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	hc_pb "dropbox/proto/kglb/healthchecker"
 	"godropbox/errors"
@@ -114,10 +115,11 @@ func (h *HttpChecker) getTLSSessionForHost(key string) tls.ClientSessionCache {
 
 // Performs test and returns true when test was succeed.
 func (h *HttpChecker) Check(host string, port int) error {
+	timeout := timeoutMsToDuration(h.params.GetCheckTimeoutMs())
 	key := fmt.Sprintf("%s-%d", host, port)
 	sessionCache := h.getTLSSessionForHost(key)
 	// http.Transport is very bad at releasing connections
-	transport, err := createTransport(h.isSecure, h.dialContext, sessionCache)
+	transport, err := createTransport(h.isSecure, h.dialContext, timeout, sessionCache)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create http transport: ")
 	}
@@ -165,7 +167,7 @@ func (h *HttpChecker) Check(host string, port int) error {
 
 	// enforce Timeout for the whole request including connect and waiting
 	// response.
-	ctx, cancel := context.WithTimeout(context.Background(), timeoutMsToDuration(h.params.GetCheckTimeoutMs()))
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	req = req.WithContext(ctx)
@@ -196,7 +198,7 @@ func (h *HttpChecker) Check(host string, port int) error {
 		requestURL, resp.StatusCode, h.params.GetCodes())
 }
 
-func createTransport(tlsEnabled bool, dialContext DialContextFunc, cache tls.ClientSessionCache) (*http.Transport, error) {
+func createTransport(tlsEnabled bool, dialContext DialContextFunc, tlsTimeout time.Duration, cache tls.ClientSessionCache) (*http.Transport, error) {
 	transport := &http.Transport{
 		DisableKeepAlives: true,
 		DialContext:       dialContext,
@@ -205,6 +207,8 @@ func createTransport(tlsEnabled bool, dialContext DialContextFunc, cache tls.Cli
 
 	// enable ssl if it's needed.
 	if tlsEnabled {
+		transport.TLSHandshakeTimeout = tlsTimeout
+
 		transport.TLSClientConfig = &tls.Config{ClientSessionCache: cache}
 
 		// TODO(dkopytkov): CA should come from proto, but repeating what we had in the past for now.

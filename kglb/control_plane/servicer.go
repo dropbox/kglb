@@ -4,6 +4,7 @@ import (
 	"context"
 	go_context "context"
 	"fmt"
+	"hash/fnv"
 	"net"
 	"sync"
 	"time"
@@ -47,6 +48,7 @@ type ControlPlaneServicer struct {
 	// v2 stats
 	statAvailability      *v2stats.GaugeGroup
 	statRouteAnnouncement *v2stats.GaugeGroup
+	perSetupStateHashes   map[string]*v2stats.Gauge
 	// modules provided during construction.
 	modules ServicerModules
 
@@ -82,6 +84,7 @@ func newControlPlaneServicer(
 		initialState:          true,
 		statAvailability:      v2stats.NewGaugeGroup(availabilityGauge),
 		statRouteAnnouncement: v2stats.NewGaugeGroup(routeAnnouncementGauge),
+		perSetupStateHashes:   make(map[string]*v2stats.Gauge),
 	}
 	servicer.ctx, servicer.cancelFunc = context.WithCancel(ctx)
 
@@ -287,6 +290,33 @@ func (s *ControlPlaneServicer) generateRoutes(
 	return result, nil
 }
 
+func perUpstreamHash(s string, u uint32) uint64 {
+	fnvHash := fnv.New64()
+	fnvHash.Write([]byte(fmt.Sprintf("%s_%u", s, u)))
+	return fnvHash.Sum64()
+}
+
+func (s *ControlPlaneServicer) setStatesHashes(hashes map[string]uint64) {
+	for k, v := range hashes {
+		if g, exists := s.perSetupStateHashes[k]; exists {
+			g.Set(float64(v))
+		} else {
+			g, err := stateHashGauge.V(v2stats.KV{
+				"setup":  k,
+				"entity": "global",
+			})
+			if err != nil {
+				exclog.Report(errors.Wrapf(err,
+					"unable to create gauge for %s setup", k),
+					exclog.Critical, "")
+				return
+			}
+			g.Set(float64(v))
+			s.perSetupStateHashes[k] = &g
+		}
+	}
+}
+
 func (s *ControlPlaneServicer) GenerateDataPlaneState() (
 	*pb.DataPlaneState, error) {
 
@@ -302,7 +332,9 @@ func (s *ControlPlaneServicer) GenerateDataPlaneState() (
 	result := &pb.DataPlaneState{}
 
 	existingFwmarks := make(map[uint32]bool)
-
+	// stateHashPerSetup is map, which contains setup's (key) specific hash (value). kglbs in same cluster+setup pair
+	// must have the same hash value to be consistent amongs each other
+	stateHashPerSetup := make(map[string]uint64)
 	for _, balancer := range s.balancers {
 		balancerState := balancer.GetState()
 		balancerConfig := balancer.GetConfig()
@@ -314,6 +346,10 @@ func (s *ControlPlaneServicer) GenerateDataPlaneState() (
 					continue
 				} else {
 					existingFwmarks[fwm] = true
+				}
+			} else {
+				for _, upstream := range state.GetUpstreams() {
+					stateHashPerSetup[balancerConfig.SetupName] += perUpstreamHash(upstream.GetHostname()+state.GetName(), upstream.GetWeight())
 				}
 			}
 			result.Balancers = append(result.Balancers, state)
@@ -335,7 +371,8 @@ func (s *ControlPlaneServicer) GenerateDataPlaneState() (
 
 		// do not announce route in initial state since alive ratio may be
 		// still zero during this period.
-		if !balancerState.InitialState &&
+		if balancerConfig.GetDynamicRouting().GetBgpAttributes() != nil &&
+			!balancerState.InitialState &&
 			balancerState.AliveRatio > 0 &&
 			balancerState.AliveRatio >= confRatio {
 
@@ -362,6 +399,7 @@ func (s *ControlPlaneServicer) GenerateDataPlaneState() (
 				exclog.Critical, "")
 		}
 	}
+	s.setStatesHashes(stateHashPerSetup)
 	s.statRouteAnnouncement.SetAndReset()
 
 	// generating routes to announce.

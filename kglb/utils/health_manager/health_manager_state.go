@@ -9,6 +9,7 @@ import (
 type HealthManagerEntry struct {
 	HostPort *discovery.HostPort
 	Status   *healthStatusEntry
+	Enabled  bool
 }
 
 // Compares two HealthManagerEntry entries and returns true when both are equal,
@@ -24,7 +25,7 @@ func NewHealthManagerEntry(
 	port int) HealthManagerEntry {
 
 	return HealthManagerEntry{
-		HostPort: discovery.NewHostPort(host, port),
+		HostPort: discovery.NewHostPort(host, port, true),
 		Status:   NewHealthStatusEntry(initialHealthyState),
 	}
 }
@@ -89,7 +90,8 @@ func (h HealthManagerState) Clone() HealthManagerState {
 		newState[i] = HealthManagerEntry{
 			HostPort: discovery.NewHostPort(
 				entry.HostPort.Host,
-				entry.HostPort.Port),
+				entry.HostPort.Port,
+				entry.HostPort.Enabled),
 			Status: &healthStatusEntry{
 				isHealthy:   entry.Status.isHealthy,
 				healthCount: entry.Status.healthCount,

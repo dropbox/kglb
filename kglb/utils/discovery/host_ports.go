@@ -13,22 +13,24 @@ type HostPort struct {
 	Port int
 	// address or hostname to use for healthchecks (depends on DnsResolver config)
 	Address string
+	// flag which indicates if host is enabled for taking traffic or not
+	Enabled bool
 }
 
-func NewHostPort(host string, port int) *HostPort {
+func NewHostPort(host string, port int, enabled bool) *HostPort {
 	return &HostPort{
 		Host:    host,
 		Port:    port,
 		Address: host,
+		Enabled: enabled,
 	}
 }
 
 // Compare HostPort items.
 func (h *HostPort) Equal(item *HostPort) bool {
-	if item != nil && h.Host == item.Host && h.Port == item.Port && h.Address == item.Address {
+	if item != nil && h.Host == item.Host && h.Port == item.Port && h.Address == item.Address && h.Enabled == item.Enabled {
 		return true
 	}
-
 	return false
 }
 

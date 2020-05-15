@@ -51,7 +51,7 @@ func (f *BaseDiscoveryFactory) Resolver(
 			[]*discovery.HostPort,
 			len(attr.StaticAttributes.Hosts))
 		for i, host := range attr.StaticAttributes.Hosts {
-			hostPorts[i] = discovery.NewHostPort(host, port)
+			hostPorts[i] = discovery.NewHostPort(host, port, true)
 		}
 		params := discovery.StaticResolverParams{
 			Id:          fmt.Sprintf("%s/static", name), // Resolver Id.
@@ -85,7 +85,7 @@ func (f *BaseDiscoveryFactory) Update(
 			[]*discovery.HostPort,
 			len(attr.StaticAttributes.Hosts))
 		for i, host := range attr.StaticAttributes.Hosts {
-			hostPorts[i] = discovery.NewHostPort(host, port)
+			hostPorts[i] = discovery.NewHostPort(host, port, true)
 		}
 
 		staticResolver.Update(hostPorts)
