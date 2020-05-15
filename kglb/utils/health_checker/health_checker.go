@@ -34,6 +34,8 @@ func NewHealthChecker(checker *hc_pb.UpstreamChecker, dialContext DialContextFun
 		return NewSyslogChecker(attr.Syslog, dialContext)
 	case *hc_pb.HealthCheckerAttributes_Dns:
 		return NewDnsChecker(attr.Dns, dialContext)
+	case *hc_pb.HealthCheckerAttributes_Tcp:
+		return NewTcpChecker(attr.Tcp, dialContext)
 	default:
 		return nil, errors.Newf("Unknown Health Checker type: %s", attr)
 	}

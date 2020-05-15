@@ -29,3 +29,7 @@ var upstreamsCountGauge = v2stats.MustDefineGauge("kglb/control_plane/upstreams_
 // Tags:
 // - initialized: [true/false] - indicates control plane initialization status
 var availabilityGauge = v2stats.MustDefineGauge("kglb/control_plane/availability", "initialized")
+
+// KGLB state hash gauge (gauge value being used to compare between different kglbs in same cluster)
+// same value means they are consistent (see the same amount of up/down hosts)
+var stateHashGauge = v2stats.MustDefineGauge("kglb/control_plane/state_hash", "entity", "setup")

@@ -282,22 +282,6 @@ func (s *ConnectionSuite) TestToSockaddr(c *C) {
 		0x00, 0x00, 0x00, 0x01})
 }
 
-func (s *ConnectionSuite) TestDurationToTimeval(c *C) {
-	c.Assert(durationToTimeval(time.Second), DeepEqualsPretty, syscall.Timeval{
-		Sec: 1, Usec: 0,
-	})
-
-	c.Assert(durationToTimeval(time.Second+100*time.Millisecond), DeepEqualsPretty, syscall.Timeval{
-		Sec: 1, Usec: 100000,
-	})
-	c.Assert(durationToTimeval(1000*time.Millisecond), DeepEqualsPretty, syscall.Timeval{
-		Sec: 1, Usec: 0,
-	})
-	c.Assert(durationToTimeval(50*time.Millisecond), DeepEqualsPretty, syscall.Timeval{
-		Sec: 0, Usec: 50000,
-	})
-}
-
 // Checking that connWrap doesn't return error.
 func (s *ConnectionSuite) TestTcpClose(c *C) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

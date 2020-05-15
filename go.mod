@@ -17,6 +17,7 @@ require (
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	godropbox v0.0.0-00010101000000-000000000000
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2
+	golang.org/x/sys v0.0.0-20191220142924-d4481acd189f
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )
 

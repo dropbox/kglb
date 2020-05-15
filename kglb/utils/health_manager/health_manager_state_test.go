@@ -1,10 +1,10 @@
 package health_manager
 
 import (
-	. "godropbox/gocheck2"
 	. "gopkg.in/check.v1"
 
 	"dropbox/kglb/utils/discovery"
+	. "godropbox/gocheck2"
 )
 
 type HealthManagerStateSuite struct {
@@ -18,27 +18,27 @@ func (m *HealthManagerStateSuite) TestContains(c *C) {
 			NewHealthManagerEntry(false, "host1", 80),
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).Contains(discovery.NewHostPort("host1", 80)), IsTrue)
+		}).Contains(discovery.NewHostPort("host1", 80, true)), IsTrue)
 
 	c.Assert(
 		HealthManagerState([]HealthManagerEntry{
 			NewHealthManagerEntry(false, "host1", 80),
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).Contains(discovery.NewHostPort("host2", 80)), IsTrue)
+		}).Contains(discovery.NewHostPort("host2", 80, true)), IsTrue)
 
 	c.Assert(
 		HealthManagerState([]HealthManagerEntry{
 			NewHealthManagerEntry(false, "host1", 80),
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).Contains(discovery.NewHostPort("host1", 82)), IsFalse)
+		}).Contains(discovery.NewHostPort("host1", 82, true)), IsFalse)
 	c.Assert(
 		HealthManagerState([]HealthManagerEntry{
 			NewHealthManagerEntry(false, "host1", 80),
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).Contains(discovery.NewHostPort("host3", 80)), IsFalse)
+		}).Contains(discovery.NewHostPort("host3", 80, true)), IsFalse)
 }
 
 func (m *HealthManagerStateSuite) TestGetEntry(c *C) {
@@ -48,7 +48,7 @@ func (m *HealthManagerStateSuite) TestGetEntry(c *C) {
 			testEntry,
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).GetEntry(discovery.NewHostPort("host1", 80)).Equal(&testEntry),
+		}).GetEntry(discovery.NewHostPort("host1", 80, true)).Equal(&testEntry),
 		IsTrue)
 
 	c.Assert(
@@ -56,13 +56,13 @@ func (m *HealthManagerStateSuite) TestGetEntry(c *C) {
 			testEntry,
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).GetEntry(discovery.NewHostPort("host3", 80)), IsNil)
+		}).GetEntry(discovery.NewHostPort("host3", 80, true)), IsNil)
 	c.Assert(
 		HealthManagerState([]HealthManagerEntry{
 			testEntry,
 			NewHealthManagerEntry(false, "host1", 81),
 			NewHealthManagerEntry(false, "host2", 80),
-		}).GetEntry(discovery.NewHostPort("host2", 81)), IsNil)
+		}).GetEntry(discovery.NewHostPort("host2", 81, true)), IsNil)
 }
 
 func (m *HealthManagerStateSuite) TestString(c *C) {

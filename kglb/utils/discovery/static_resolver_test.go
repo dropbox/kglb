@@ -17,8 +17,8 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
-				NewHostPort("host2", 80),
+				NewHostPort("host1", 80, true),
+				NewHostPort("host2", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -28,8 +28,8 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver2",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
-				NewHostPort("host2", 80),
+				NewHostPort("host1", 80, true),
+				NewHostPort("host2", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -38,8 +38,8 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
-				NewHostPort("host2", 80),
+				NewHostPort("host1", 80, true),
+				NewHostPort("host2", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -49,7 +49,7 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
+				NewHostPort("host1", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -58,8 +58,8 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host2", 80),
-				NewHostPort("host1", 80),
+				NewHostPort("host2", 80, true),
+				NewHostPort("host1", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -68,8 +68,8 @@ func (s *StaticResolverSuite) TestEqual(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
-				NewHostPort("host2", 80),
+				NewHostPort("host1", 80, true),
+				NewHostPort("host2", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -81,8 +81,8 @@ func (s *StaticResolverSuite) TestUpdate(c *C) {
 		StaticResolverParams{
 			Id: "resolver1",
 			Hosts: DiscoveryState([]*HostPort{
-				NewHostPort("host1", 80),
-				NewHostPort("host2", 80),
+				NewHostPort("host1", 80, true),
+				NewHostPort("host2", 80, true),
 			}),
 		})
 	c.Assert(err, IsNil)
@@ -92,8 +92,8 @@ func (s *StaticResolverSuite) TestUpdate(c *C) {
 	case state, ok := <-resolver1.Updates():
 		c.Assert(ok, IsTrue)
 		c.Assert(state, DeepEquals, DiscoveryState([]*HostPort{
-			NewHostPort("host1", 80),
-			NewHostPort("host2", 80),
+			NewHostPort("host1", 80, true),
+			NewHostPort("host2", 80, true),
 		}))
 	case <-time.After(time.Second):
 		c.Log("timeout to wait update.")
@@ -102,18 +102,18 @@ func (s *StaticResolverSuite) TestUpdate(c *C) {
 
 	updateChan := resolver1.Updates()
 	resolver1.Update(DiscoveryState([]*HostPort{
-		NewHostPort("host1", 80),
-		NewHostPort("host2", 80),
-		NewHostPort("host3", 80),
+		NewHostPort("host1", 80, true),
+		NewHostPort("host2", 80, true),
+		NewHostPort("host3", 80, true),
 	}))
 	// waiting update though the channel.
 	select {
 	case newState, ok := <-updateChan:
 		c.Assert(ok, IsTrue)
 		c.Assert(newState, DeepEquals, DiscoveryState([]*HostPort{
-			NewHostPort("host1", 80),
-			NewHostPort("host2", 80),
-			NewHostPort("host3", 80),
+			NewHostPort("host1", 80, true),
+			NewHostPort("host2", 80, true),
+			NewHostPort("host3", 80, true),
 		}))
 	case <-time.After(time.Second):
 		c.Log("timeout to wait update.")

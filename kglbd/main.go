@@ -4,6 +4,9 @@ import (
 	"context"
 	"flag"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/golang/glog"
@@ -17,21 +20,32 @@ func main() {
 		"status port.")
 
 	flagConfigPath := flag.String(
-		"config_path",
+		"config",
 		"",
 		"full path to the configuration.")
 	flag.Parse()
 
 	if len(*flagConfigPath) == 0 {
-		glog.Fatal("-config_path is required path.")
+		glog.Fatal("-config is required path.")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if _, err := NewService(ctx, *flagConfigPath); err != nil {
+	mng, err := NewService(ctx, *flagConfigPath)
+	if err != nil {
 		glog.Fatal(err)
 	}
+
+	// handle signals defined in the array below to perform graceful
+	// data plane shutdown.
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, []os.Signal{
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGTERM,
+		syscall.SIGUSR1,
+	}...)
 
 	mux := http.NewServeMux()
 	mux.Handle("/stats", promhttp.Handler())
@@ -44,5 +58,16 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	glog.Fatal(srv.ListenAndServe())
+	go func() {
+		glog.Fatal(srv.ListenAndServe())
+	}()
+
+	select {
+	case sig := <-sigChan:
+		glog.Infof("Received '%v', starting shutdown process...", sig)
+		ctx.Done()
+	}
+
+	mng.Shutdown()
+	srv.Close()
 }

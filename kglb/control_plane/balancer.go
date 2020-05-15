@@ -452,6 +452,10 @@ func (u *Balancer) updateState(
 	// generate UpstreamState based on provided HealthManagerState state.
 	upstreamStates := []*pb.UpstreamState{}
 	for _, entry := range state {
+		if !entry.HostPort.Enabled {
+			// skip hosts which are disabled in service discovery
+			continue
+		}
 		// getting ip.
 		ip, err := u.params.DnsResolver.ResolveHost(
 			entry.HostPort.Host,

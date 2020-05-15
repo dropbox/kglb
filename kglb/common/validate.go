@@ -278,6 +278,7 @@ func ValidateUpstreamChecker(c *pb.BalancerConfig) error {
 		if int(attr.Syslog.GetPort()) > math.MaxUint16 {
 			return errors.Newf("syslog port value is out of bound: %+v", attr)
 		}
+	case *hc_pb.HealthCheckerAttributes_Tcp:
 	default:
 		return errors.Newf("Unsupported UpstreamChecker attributes %s", attr)
 	}
@@ -325,6 +326,10 @@ func ValidateDynamicRouting(m *pb.DynamicRouting) error {
 
 	if m.GetAnnounceLimitRatio() > 1.0 {
 		return errors.New("DynamicRouting.AnnounceLimitRatio cannot be gt 1.0")
+	}
+
+	if m.GetAttributes() == nil {
+		return nil
 	}
 
 	switch attr := m.GetAttributes().(type) {

@@ -8,6 +8,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"godropbox/errors"
 )
 
@@ -114,19 +116,22 @@ func tcpConn(fd int, params *tcpConnParams) error {
 	}
 
 	if params.timeout > 0 {
-		soTimeout := durationToTimeval(params.timeout)
-		if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, syscall.SO_SNDTIMEO, &soTimeout); err != nil {
-			return errors.Wrapf(
-				err,
-				"fails to apply SO_SNDTIMEO, dst: %v:%d, local: %v ",
-				params.remoteIp.String(),
-				params.remotePort,
-				params.localIp.String())
+		tv := syscall.NsecToTimeval(params.timeout.Nanoseconds())
+		for _, opt := range []int{syscall.SO_RCVTIMEO, syscall.SO_SNDTIMEO} {
+			if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, opt, &tv); err != nil {
+				return errors.Wrapf(
+					err,
+					"fails to apply %d, dst: %v:%d, local: %v ",
+					opt,
+					params.remoteIp.String(),
+					params.remotePort,
+					params.localIp.String())
+			}
 		}
-		if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, &soTimeout); err != nil {
+		if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_TCP, unix.TCP_USER_TIMEOUT, int(params.timeout/time.Millisecond)); err != nil {
 			return errors.Wrapf(
 				err,
-				"fails to apply SO_RCVTIMEO, dst: %v:%d, local: %v ",
+				"fails to apply TCP_USER_TIMEOUT, dst: %v:%d, local: %v ",
 				params.remoteIp.String(),
 				params.remotePort,
 				params.localIp.String())
@@ -139,6 +144,28 @@ func tcpConn(fd int, params *tcpConnParams) error {
 	// TODO(dkopytkov): simplify whole this logic via dialer.Control after
 	// migration to go1.12
 	return syscall.Connect(fd, rsa)
+}
+
+func newTcpConnection(ctx context.Context, fd int, params tcpConnParams) (*connWrap, error) {
+	if deadline, ok := ctx.Deadline(); ok {
+		dur := time.Until(deadline)
+		if dur <= 0 {
+			return nil, fmt.Errorf("deadline has already passed: dst: %v:%d, local: %v",
+				params.remoteIp, params.remotePort, params.localIp.String())
+		}
+		params.timeout = dur
+	}
+
+	if err := tcpConn(fd, &params); err != nil {
+		return nil, err
+	}
+
+	file := os.NewFile(uintptr(fd), "")
+	fileConn, err := net.FileConn(file)
+	return &connWrap{
+		Conn: fileConn,
+		file: file,
+	}, err
 }
 
 // Establishes TCP connection to the address provided in dstAddress with a socket
@@ -177,48 +204,15 @@ func NewTcpConnection(
 		return nil, errors.Wrapf(err, "Socket() fails, dst: %s: ", dstAddress)
 	}
 
-	params := tcpConnParams{
+	c, err := newTcpConnection(ctx, fd, tcpConnParams{
 		fwmark:     fwmark,
 		localIp:    localIp,
 		remoteIp:   raddr.IP,
 		remotePort: raddr.Port,
-	}
-
-	if deadline, ok := ctx.Deadline(); ok {
-		dur := time.Until(deadline)
-		if dur <= 0 {
-			return nil, fmt.Errorf("deadline has already passed: dst: %v, local: %v",
-				dstAddress, localIp.String())
-		}
-
-		params.timeout = dur
-	}
-
-	if err := tcpConn(fd, &params); err != nil {
-		_ = syscall.Close(fd)
-		return nil, err
-	}
-
-	file := os.NewFile(uintptr(fd), "")
-	fileConn, err := net.FileConn(file)
+	})
 	if err != nil {
 		_ = syscall.Close(fd)
 		return nil, err
 	}
-
-	return &connWrap{
-		Conn: fileConn,
-		file: file,
-	}, nil
-}
-
-// convert duration to Timeval structure.
-func durationToTimeval(dur time.Duration) syscall.Timeval {
-	sec := int64(dur / time.Second)
-	// dur value is in nanoseconds.
-	usec := (dur.Nanoseconds() % int64(time.Second)) / int64(time.Microsecond)
-	return syscall.Timeval{
-		Sec:  sec,
-		Usec: usec,
-	}
+	return c, nil
 }

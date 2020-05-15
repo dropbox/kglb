@@ -40,7 +40,7 @@ func NewStaticResolver(params StaticResolverParams) (*StaticResolver, error) {
 	for _, entry := range params.Hosts {
 		hostPorts = append(
 			hostPorts,
-			&HostPort{Host: entry.Host, Port: entry.Port, Address: entry.Host})
+			&HostPort{Host: entry.Host, Port: entry.Port, Address: entry.Host, Enabled: entry.Enabled})
 	}
 
 	resolver := &StaticResolver{

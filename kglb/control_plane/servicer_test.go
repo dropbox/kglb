@@ -10,12 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	. "gopkg.in/check.v1"
 
-	"dropbox/dlog"
 	"dropbox/kglb/common"
 	"dropbox/kglb/utils/dns_resolver"
 	"dropbox/kglb/utils/fwmark"
@@ -71,6 +69,148 @@ func (s *ServicerSuite) SetUpTest(c *C) {
 		FwmarkManager: fwmark.NewManager(5000, 10000),
 	}
 
+}
+
+func (s *ServicerSuite) TestMissedBgp(c *C) {
+	dnsData := make(map[string]*pb.IP)
+	dnsData["test-host-1"] = &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "1.1.2.1"}}
+	dnsData["test-host-2"] = &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "1.1.2.2"}}
+	dnsResolver := dns_resolver.NewDnsResolverMock(dnsData)
+
+	testConfig := &pb.ControlPlaneConfig{
+		Balancers: []*pb.BalancerConfig{
+			{
+				Name:      "test-balancer-1",
+				SetupName: "setup1",
+				LbService: &pb.LoadBalancerService{
+					Service: &pb.LoadBalancerService_IpvsService{
+						IpvsService: &pb.IpvsService{
+							Attributes: &pb.IpvsService_TcpAttributes{
+								TcpAttributes: &pb.IpvsTcpAttributes{
+									Address: &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "172.0.0.1"}},
+									Port:    80,
+								},
+							},
+						},
+					},
+				},
+				UpstreamRouting: &pb.UpstreamRouting{
+					ForwardMethod: pb.ForwardMethods_TUNNEL,
+				},
+				UpstreamChecker: &hc_pb.UpstreamChecker{
+					RiseCount:  1,
+					FallCount:  1,
+					IntervalMs: 1,
+					Checker:    dummyChecker,
+				},
+				EnableFwmarks: false,
+				UpstreamDiscovery: &pb.UpstreamDiscovery{
+					Port: 80,
+					Attributes: &pb.UpstreamDiscovery_StaticAttributes{
+						StaticAttributes: &pb.StaticDiscoveryAttributes{
+							Hosts: []string{"test-host-1"},
+						},
+					},
+				},
+				DynamicRouting: &pb.DynamicRouting{
+					AnnounceLimitRatio: 0.9,
+				},
+			},
+		},
+	}
+
+	expectedDpState := &pb.DataPlaneState{
+		Balancers: []*pb.BalancerState{
+			{
+				Name: "test-balancer-1",
+				LbService: &pb.LoadBalancerService{
+					Service: &pb.LoadBalancerService_IpvsService{
+						IpvsService: &pb.IpvsService{
+							Attributes: &pb.IpvsService_TcpAttributes{
+								TcpAttributes: &pb.IpvsTcpAttributes{
+									Address: &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "172.0.0.1"}},
+									Port:    80,
+								},
+							},
+						},
+					},
+				},
+				Upstreams: []*pb.UpstreamState{
+					{
+						Address:  &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "1.1.2.1"}},
+						Hostname: "test-host-1",
+						Port:     80,
+						Weight:   1000,
+					},
+				},
+			},
+		},
+		LinkAddresses: []*pb.LinkAddress{
+			{
+				LinkName: "lo",
+				Address:  &pb.IP{Address: &pb.IP_Ipv4{Ipv4: "172.0.0.1"}},
+			},
+		},
+	}
+
+	client := mockDpClient{
+		setFunc: func(state *pb.DataPlaneState) error {
+			return nil
+		},
+	}
+
+	checkerFactory := NewHealthCheckerFactory(BaseHealthCheckerFactoryParams{})
+	discoveryFactory := NewDiscoveryFactory()
+
+	content := proto.MarshalTextString(testConfig)
+	tmpfile, err := ioutil.TempFile(s.tmpDir, "")
+	c.Assert(err, NoErr)
+	_, err = tmpfile.Write([]byte(content))
+	c.Assert(err, NoErr)
+
+	configLoader := newMockConfigLoader()
+	configLoader.configChan <- testConfig
+
+	servicerModules := ServicerModules{
+		DnsResolver:      dnsResolver,
+		CheckerFactory:   checkerFactory,
+		DiscoveryFactory: discoveryFactory,
+		DataPlaneClient:  client,
+		ConfigLoader:     configLoader,
+		// No op metric manager.
+		FwmarkManager: fwmark.NewManager(5000, 10000),
+	}
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	servicer, err := NewControlPlaneServicer(
+		ctx,
+		servicerModules,
+		time.Millisecond)
+	c.Assert(err, NoErr)
+
+	for i := 0; i < 10; i++ {
+		state, err := servicer.GetConfiguration(context.Background(), &types.Empty{})
+		c.Assert(err, NoErr)
+		if state.String() == expectedDpState.String() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	state, err := servicer.GetConfiguration(context.Background(), &types.Empty{})
+	c.Assert(err, NoErr)
+	c.Assert(state, DeepEqualsPretty, expectedDpState)
+
+	// closing control plane.
+	cancelFunc()
+	select {
+	case _, ok := <-servicer.balancers["test-balancer-1-172.0.0.1:80-tcp"].healthMng.Updates():
+		c.Assert(ok, IsFalse)
+	case <-time.After(5 * time.Second):
+		c.Log("fails to wait closing balancer and its health manager.")
+		c.Fail()
+	}
 }
 
 func (s *ServicerSuite) TestProcessServices(c *C) {
@@ -130,11 +270,6 @@ func (s *ServicerSuite) TestProcessServices(c *C) {
 			},
 		},
 	}
-
-	marshaler := &jsonpb.Marshaler{}
-	out, _ := marshaler.MarshalToString(testConfig)
-	dlog.Errorf("AAAA: %v\n", out)
-	c.Assert(out, Equals, "test")
 
 	expectedDpState := &pb.DataPlaneState{
 		Balancers: []*pb.BalancerState{
