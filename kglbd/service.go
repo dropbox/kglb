@@ -113,6 +113,14 @@ func (s *Service) initModules(ctx context.Context, configPath string) error {
 	return nil
 }
 
+func (s *Service) Shutdown() error {
+	err := s.dataPlaneMng.Shutdown()
+	if err != nil {
+		glog.Errorf("Fails to shutdown data plane manager: %v", err)
+	}
+	return err
+}
+
 // emit ipvs service and realserver stats.
 func (s *Service) statsLoop(ctx context.Context) {
 	ticker := time.NewTicker(statsEmitInterval)
