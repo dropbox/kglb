@@ -292,7 +292,7 @@ func (s *ControlPlaneServicer) generateRoutes(
 
 func perUpstreamHash(s string, u uint32) uint64 {
 	fnvHash := fnv.New64()
-	fnvHash.Write([]byte(fmt.Sprintf("%s_%u", s, u)))
+	fnvHash.Write([]byte(fmt.Sprintf("%s_%d", s, u)))
 	return fnvHash.Sum64()
 }
 
