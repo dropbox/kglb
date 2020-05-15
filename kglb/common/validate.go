@@ -328,6 +328,10 @@ func ValidateDynamicRouting(m *pb.DynamicRouting) error {
 		return errors.New("DynamicRouting.AnnounceLimitRatio cannot be gt 1.0")
 	}
 
+	if m.GetAttributes() == nil {
+		return nil
+	}
+
 	switch attr := m.GetAttributes().(type) {
 	case *pb.DynamicRouting_BgpAttributes:
 		if err := ValidateBgpRouteAttributes(m.GetBgpAttributes()); err != nil {
