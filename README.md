@@ -1,13 +1,13 @@
 # KgLb ![Build](https://github.com/piscesdk/kglb/workflows/Build/badge.svg) ![Test](https://github.com/piscesdk/kglb/workflows/Test/badge.svg) ![Lint](https://github.com/piscesdk/kglb/workflows/Lint/badge.svg)
 
-KgLb is L4 load balancer built on top of linux ip virtual server (ip_vs). 
+KgLb is L4 a load balancer built on top of linux ip virtual server (ip_vs). 
 
 ![KgLb image](doc/kglb.png)
 
-It provides rich functionality to discovery, health check real servers, automatically update their weights based on status, and apply all required changes to make ipvs alive including registering virtual services, updating reals and adding required vip addresses.
+It provides rich functionality such as discovery, health checks for real servers, automatically update their weights based on status, and apply all required changes to make ipvs alive including registering virtual services, updating reals and adding required vip addresses.
 
-## Foundation
-KgLb consists of two key components called Control Plane and Data Plane. Both components are written as libraries and based on few modules which follows pre-defined interfaces. Next picture shows high-level overview of KgLb internals.
+## Overview
+KgLb consists of two key components called Control Plane and Data Plane. Both components are written as libraries and based on a few modules which follow predefined interfaces. Next picture shows high-level overview of KgLb internals.
 ![design](doc/kglb_open_arch.jpg)
 
 * Control Plane is a library which discovers, health checks real servers, and generates data plane state:
@@ -27,8 +27,8 @@ KgLb consists of two key components called Control Plane and Data Plane. Both co
 - protoc 3.6.1+ and protoc-gen-go
 
 ## Supported features
-- Discovery: static only
-- Health Checkers: http, dns, syslog, tcp
+- Discovery: static only.
+- Health Checkers: http, dns, syslog, tcp.
 - Tunneled health checking through fwmarks.
 - Stats exported in prometheus format and available on http://127.0.0.1:5678/stats by default.
 - Graceful shutdown.
@@ -49,3 +49,7 @@ go build -o kglbd.bin ./kglbd
 ```bash
 sudo ./kglbd.bin -config=./examples/example_config.json -logtostderr
 ```
+
+## Next Steps
+- Releasing bgp module.
+- Integration with ![Katran](https://github.com/facebookincubator/katran).
